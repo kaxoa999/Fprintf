@@ -1,0 +1,43 @@
+
+// languageEntityExtractionPredict does a prediction for text entity extraction.
+func languageEntityExtractionPredict(w io.Writer, projectID string, location string, modelID string, content string) error {
+        // projectID := "my-project-id"
+        // location := "us-central1"
+        // modelID := "TEN123456789..."
+        // content := "text to extract entities"
+
+        ctx := context.Background()
+        client, err := automl.NewPredictionClient(ctx)
+        if err != nil {
+                return fmt.Errorf("NewPredictionClient: %w", err)
+        }
+        defer client.Close()
+
+        req := &automlpb.PredictRequest{
+                Name: fmt.Sprintf("projects/%s/locations/%s/models/%s", projectID, location, modelID),
+                Payload: &automlpb.ExamplePayload{
+                        Payload: &automlpb.ExamplePayload_TextSnippet{
+                                TextSnippet: &automlpb.TextSnippet{
+                                        Content:  content,
+                                        MimeType: "text/plain", // Types: "text/plain", "text/html"
+                                },
+                        },
+                },
+        }
+
+        resp, err := client.Predict(ctx, req)
+        if err != nil {
+                return fmt.Errorf("Predict: %w", err)
+        }
+
+        for _, payload := range resp.GetPayload() {
+                fmt.Fprintf(w, "Text extract entity types: %v\n", payload.GetDisplayName())
+                fmt.Fprintf(w, "Text score: %v\n", payload.GetTextExtraction().GetScore())
+                textSegment := payload.GetTextExtraction().GetTextSegment()
+                fmt.Fprintf(w, "Text extract entity content: %v\n", textSegment.GetContent())
+                fmt.Fprintf(w, "Text start offset: %v\n", textSegment.GetStartOffset())
+                fmt.Fprintf(w, "Text end offset: %v\n", textSegment.GetEndOffset())
+        }
+
+        return nil
+}
